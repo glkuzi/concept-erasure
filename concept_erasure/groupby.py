@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Iterator
+from typing import Callable, Iterator, Union
 
 import torch
 from torch import LongTensor, Tensor
@@ -27,7 +27,7 @@ class GroupedTensor:
     labels: list[int]
     """Unique label for each element of `groups`."""
 
-    def coalesce(self, groups: list[Tensor] | None = None) -> Tensor:
+    def coalesce(self, groups: Union[list[Tensor], None] = None) -> Tensor:
         """Fuse `groups or self.groups` back together, restoring the original order.
 
         This method is most useful when you want to group a tensor, perform an operation

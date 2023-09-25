@@ -1,4 +1,5 @@
 from types import MethodType
+from typing import Union
 
 import torch
 import torch.nn.functional as F
@@ -35,11 +36,11 @@ def patch_attention_neox_(model: torch.nn.Module):
 def scrub_neox(
     model: GPTNeoXForCausalLM,
     train: Dataset,
-    z_column: str | None,
+    z_column: Union[str, None],
     batch_size: int = 32,
     method: ErasureMethod = "leace",
     affine: bool = True,
-) -> tuple[ConceptScrubber | None, float]:
+) -> tuple[Union[ConceptScrubber, None], float]:
     base = assert_type(GPTNeoXModel, model.base_model)
     d = assert_type(int, base.config.hidden_size)
 

@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from functools import partial
-from typing import Callable
+from typing import Callable, Union
 
 from torch import Tensor, nn
 
@@ -32,15 +32,15 @@ class ConceptScrubber:
     def apply_hook(
         self,
         model: nn.Module,
-        hook_fn: Callable[[str, Tensor], Tensor | None],
+        hook_fn: Callable[[str, Tensor], Union[Tensor, None]],
     ):
         """Apply a `hook_fn` to each submodule in `model` that we're scrubbing."""
 
-        def post_wrapper(_, __, output, name: str) -> Tensor | None:
+        def post_wrapper(_, __, output, name: str) -> Union[Tensor, None]:
             key = mangle_module_path(name)
             return hook_fn(key, output)
 
-        def pre_wrapper(_, inputs, name: str) -> tuple[Tensor | None, ...]:
+        def pre_wrapper(_, inputs, name: str) -> tuple[Union[Tensor, None], ...]:
             x, *extras = inputs
             key = mangle_module_path(name)
             return hook_fn(key, x), *extras

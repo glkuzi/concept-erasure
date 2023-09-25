@@ -1,4 +1,5 @@
 from types import MethodType
+from typing import Union
 
 import torch
 import torch.nn.functional as F
@@ -21,12 +22,12 @@ from concept_erasure.utils import assert_type
 def _fast_attn(
     self,
     hidden_states: torch.Tensor,
-    attention_mask: torch.Tensor | None = None,
-    position_ids: torch.LongTensor | None = None,
-    past_key_value: tuple[torch.Tensor, ...] | None = None,
+    attention_mask: Union[torch.Tensor, None] = None,
+    position_ids: Union[torch.LongTensor, None] = None,
+    past_key_value: Union[tuple[torch.Tensor, ...], None] = None,
     output_attentions: bool = False,
     use_cache: bool = False,
-) -> tuple[torch.Tensor, torch.Tensor | None, tuple[torch.Tensor, ...] | None]:
+) -> tuple[torch.Tensor, Union[torch.Tensor, None], Union[tuple[torch.Tensor, ...], None]]:
     """Fast version of LLaMA attention."""
     assert not output_attentions, "output_attentions not implemented for fast_attn"
     del attention_mask  # unused, but it's non-None in the base class
@@ -80,12 +81,12 @@ def patch_attention_llama_(model: torch.nn.Module):
 def scrub_llama(
     model: LlamaForCausalLM,
     train: Dataset,
-    z_column: str | None,
+    z_column: Union[str, None],
     batch_size: int = 1,
     method: ErasureMethod = "leace",
     sublayers: bool = True,
     affine: bool = True,
-) -> tuple[ConceptScrubber | None, float]:
+) -> tuple[Union[ConceptScrubber, None], float]:
     base = assert_type(LlamaModel, model.base_model)
     d = assert_type(int, base.config.hidden_size)
 

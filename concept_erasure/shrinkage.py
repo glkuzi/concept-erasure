@@ -1,8 +1,9 @@
 import torch
 from torch import Tensor
+from typing import Union
 
 
-def optimal_linear_shrinkage(S_n: Tensor, n: int | Tensor) -> Tensor:
+def optimal_linear_shrinkage(S_n: Tensor, n: Union[int, Tensor]) -> Tensor:
     """Optimal linear shrinkage for a sample covariance matrix or batch thereof.
 
     Given a sample covariance matrix `S_n` of shape (*, p, p) and a sample size `n`,
@@ -50,5 +51,5 @@ def optimal_linear_shrinkage(S_n: Tensor, n: int | Tensor) -> Tensor:
 
 def trace(matrices: Tensor) -> Tensor:
     """Version of `torch.trace` that works for batches of matrices."""
-    diag = torch.linalg.diagonal(matrices)
+    diag = torch.diagonal(matrices, dim1=-2, dim2=-1)
     return diag.sum(dim=-1, keepdim=True).unsqueeze(-1)

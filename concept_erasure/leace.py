@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Union
 
 import torch
 from torch import Tensor
@@ -21,7 +21,7 @@ class LeaceEraser:
 
     proj_left: Tensor
     proj_right: Tensor
-    bias: Tensor | None
+    bias: Union[Tensor, None]
 
     @classmethod
     def fit(cls, x: Tensor, z: Tensor, **kwargs) -> "LeaceEraser":
@@ -43,7 +43,7 @@ class LeaceEraser:
         delta = x - self.bias if self.bias is not None else x
 
         # Ensure we do the matmul in the most efficient order.
-        x_ = x - (delta @ self.proj_right.mH) @ self.proj_left.mH
+        x_ = x - (delta @ self.proj_right.transpose(-2, -1).conj()) @ self.proj_left.transpose(-2, -1).conj()
         return x_.type_as(x)
 
 
@@ -67,7 +67,7 @@ class LeaceFitter:
     sigma_xz_: Tensor
     """Unnormalized cross-covariance matrix X^T Z."""
 
-    sigma_xx_: Tensor | None
+    sigma_xx_: Union[Tensor, None]
     """Unnormalized covariance matrix X^T X."""
 
     n: Tensor
@@ -90,8 +90,8 @@ class LeaceFitter:
         *,
         affine: bool = True,
         constrain_cov_trace: bool = True,
-        device: str | torch.device | None = None,
-        dtype: torch.dtype | None = None,
+        device: Union[str, torch.device, None] = None,
+        dtype: Union[torch.dtype, None] = None,
         shrinkage: bool = True,
         svd_tol: float = 0.01,
     ):
@@ -162,7 +162,7 @@ class LeaceFitter:
         # Update the covariance matrix of X if needed (for LEACE)
         if self.method == "leace":
             assert self.sigma_xx_ is not None
-            self.sigma_xx_.addmm_(delta_x.mH, delta_x2)
+            self.sigma_xx_.addmm_(delta_x.transpose(-2, -1).conj(), delta_x2)
 
         z = z.reshape(n, -1).type_as(x)
         assert z.shape[-1] == c, f"Unexpected number of classes {z.shape[-1]}"
@@ -172,7 +172,7 @@ class LeaceFitter:
         delta_z2 = z - self.mean_z
 
         # Update the cross-covariance matrix
-        self.sigma_xz_.addmm_(delta_x.mH, delta_z2)
+        self.sigma_xz_.addmm_(delta_x.transpose(-2, -1).conj(), delta_z2)
 
         return self
 
@@ -192,8 +192,8 @@ class LeaceFitter:
             # Assuming PSD; account for numerical error
             L.clamp_min_(0.0)
 
-            W = V * torch.where(mask, L.rsqrt(), 0.0) @ V.mH
-            W_inv = V * torch.where(mask, L.sqrt(), 0.0) @ V.mH
+            W = V * torch.where(mask, L.rsqrt(), torch.tensor(0.0).to(self.mean_x.device)) @ V.transpose(-2, -1).conj()
+            W_inv = V * torch.where(mask, L.sqrt(), torch.tensor(0.0).to(self.mean_x.device)) @ V.transpose(-2, -1).conj()
         else:
             W, W_inv = eye, eye
 
@@ -203,7 +203,7 @@ class LeaceFitter:
         u *= s > self.svd_tol
 
         proj_left = W_inv @ u
-        proj_right = u.mH @ W
+        proj_right = u.transpose(-2, -1).conj() @ W
 
         if self.constrain_cov_trace and self.method == "leace":
             P = eye - proj_left @ proj_right
@@ -211,18 +211,22 @@ class LeaceFitter:
             # Prevent the covariance trace from increasing
             sigma = self.sigma_xx
             old_trace = torch.trace(sigma)
-            new_trace = torch.trace(P @ sigma @ P.mH)
+            new_trace = torch.trace(P @ sigma @ P.transpose(-2, -1).conj())
 
             # If applying the projection matrix increases the variance, this might
             # cause instability, especially when erasure is applied multiple times.
             # We regularize toward the orthogonal projection matrix to avoid this.
-            if new_trace.real > old_trace.real:
-                Q = eye - u @ u.mH
+            try:
+                condition = new_trace.real > old_trace.real
+            except:
+                condition = new_trace > old_trace
+            if condition:
+                Q = eye - u @ u.transpose(-2, -1).conj()
 
                 # Set up the variables for the quadratic equation
                 x = new_trace
-                y = 2 * torch.trace(P @ sigma @ Q.mH)
-                z = torch.trace(Q @ sigma @ Q.mH)
+                y = 2 * torch.trace(P @ sigma @ Q.transpose(-2, -1).conj())
+                z = torch.trace(Q @ sigma @ Q.transpose(-2, -1).conj())
                 w = old_trace
 
                 # Solve for the mixture of P and Q that makes the trace equal to the
@@ -234,7 +238,10 @@ class LeaceFitter:
                 alpha2 = (-y / 2 + z + discr / 2) / (x - y + z)
 
                 # Choose the positive root
-                alpha = torch.where(alpha1.real > 0, alpha1, alpha2).clamp(0, 1)
+                try:
+                    alpha = torch.where(alpha1.real > 0, alpha1, alpha2).clamp(0, 1)
+                except:
+                    alpha = torch.where(alpha1 > 0, alpha1, alpha2).clamp(0, 1)
                 P = alpha * P + (1 - alpha) * Q
 
                 # TODO: Avoid using SVD here
@@ -255,7 +262,7 @@ class LeaceFitter:
         ), "Covariance statistics are not being tracked for X"
 
         # Accumulated numerical error may cause this to be slightly non-symmetric
-        S_hat = (self.sigma_xx_ + self.sigma_xx_.mH) / 2
+        S_hat = (self.sigma_xx_ + self.sigma_xx_.transpose(-2, -1).conj()) / 2
 
         # Apply Random Matrix Theory-based shrinkage
         if self.shrinkage:

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Union
 
 import torch
 from torch import Tensor
@@ -92,8 +93,8 @@ class QuadraticFitter:
         x_dim: int,
         num_classes: int,
         *,
-        device: str | torch.device | None = None,
-        dtype: torch.dtype | None = None,
+        device: Union[str, torch.device, None] = None,
+        dtype: Union[torch.dtype, None] = None,
         shrinkage: bool = True,
     ):
         """Initialize a `QuadraticFitter`.

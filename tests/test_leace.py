@@ -9,6 +9,7 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 from sklearn.svm import LinearSVC
+from typing import Union
 
 from concept_erasure import (
     ErasureMethod,
@@ -92,7 +93,7 @@ def test_stats(shrinkage: bool, dtype: torch.dtype):
 
 
 def check_linear_guardedness(
-    dirty_x: np.ndarray | None, scrubbed_x: np.ndarray, y: np.ndarray, eps: float
+    dirty_x: Union[np.ndarray, None], scrubbed_x: np.ndarray, y: np.ndarray, eps: float
 ):
     # Logistic regression should not be able to learn anything.
     null_lr = LogisticRegression(penalty=None, tol=0.0).fit(

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "concept-erasure"
 description = "Erasing concepts from neural representations with provable guarantees"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 keywords = ["fairness", "interpretability", "explainable-ai"]
 license = {text = "MIT License"}
 dependencies = [

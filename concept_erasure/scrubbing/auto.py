@@ -1,5 +1,5 @@
 from warnings import warn
-
+from typing import Union
 import torch.nn.functional as F
 from datasets import Dataset
 from transformers import GPTNeoXForCausalLM, LlamaForCausalLM, PreTrainedModel
@@ -31,12 +31,12 @@ def patch_attention_(model: PreTrainedModel):
 def scrub(
     model: PreTrainedModel,
     train: Dataset,
-    z_column: str | None,
+    z_column: Union[str, None],
     affine: bool = True,
     batch_size: int = 1,
     method: ErasureMethod = "leace",
     sublayers: bool = True,
-) -> tuple[ConceptScrubber | None, float]:
+) -> tuple[Union[ConceptScrubber, None], float]:
     """Apply concept scrubbing to `model` on dataset `train`, returning the scrubber."""
     if isinstance(model, GPTNeoXForCausalLM):
         return scrub_neox(model, train, z_column, batch_size, method, affine)
